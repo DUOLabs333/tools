@@ -34,13 +34,25 @@ def curl(url, dest_dir=".", dest_file=None):
 def untar(path, dest_dir=".", strip_components=0):
     subprocess.run(["tar", "-xvzf", path, "--strip-components", str(strip_components), "-C", dest_dir])
 
+def get_dep_folder(dep):
+    return dependencies_dir/dep
+
+def get_dep_path(dep, path):
+    return os.path.join(get_dep_folder, path)
+
+def string_to_bool(string):
+    if string=="0":
+        return False
+    else:
+        return True
+
 def load_file(file_path, functions):
     exec(file_path.open().read(), globals(), functions)
 
 def execute_dependencies(dependencies):
     for dependency, actions in dependencies:
         dependency_file=dependencies_dir / (dependency+".py")
-        dependency_folder= dependencies_dir / dependency
+        dependency_folder= get_dep_folder(dependency)
 
         if "delete" in actions:
             shutil.rmtree(dependency_folder)
