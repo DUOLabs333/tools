@@ -3,7 +3,7 @@ from update import cwd_ctx, get_dep_path, string_to_bool
 
 from sys import platform as PLATFORM
 
-
+import itertools, subprocess, glob, re
 
 import inspect
 class BuildBase(object):
@@ -18,7 +18,6 @@ class BuildBase(object):
 
     IS_LIB=True
 
-BUILD_BASE_ATTRS=inspect.getmembers(BuildBase)
 
 classes={}
 exec(open("Buildfile.py","r").read(),globals(), classes)
@@ -35,25 +34,24 @@ def build_target(target):
     if hasattr(target, "build"):
         getattr(target, "build")()
         return
-
-    for attr in BUILD_BASE_ATTRS:
-        globals()[attr]=getattr(target, attr)
     
-    FLAGS=(["-g","-DDEBUG"] if DEBUG else ["-O3","-DNDEBUG"]) + ["-Wfatal-errors","-fPIC","-Winvalid-pch", "-g"]+(["-ggdb"] if PLATFORM=="linux" else [])+(["-mcpu=apple-a14" if PLATFORM=="darwin" else "-march=native"] if not DEBUG else [])+FLAGS
+    target.FLAGS=(["-g","-DDEBUG"] if DEBUG else ["-O3","-DNDEBUG"]) + ["-Wfatal-errors","-fPIC","-Winvalid-pch", "-g"]+(["-ggdb"] if PLATFORM=="linux" else [])+(["-mcpu=apple-a14" if PLATFORM=="darwin" else "-march=native"] if not DEBUG else [])+target.FLAGS
 
-    INCLUDE_PATHS=list(itertools.chain.from_iterable([['-I', x] for x in INCLUDE_PATHS]))
-    SHARED_LIBS=["-l"+_ for _ in SHARED_LIBS]
-    SHARED_LIBS_PATHS=["-L"+_ for _ in SHARED_LIBS_PATHS]
-    
-    SRC_FILES=list(itertools.chain.from_iterable(SRC_FILES))
+    target.INCLUDE_PATHS=list(itertools.chain.from_iterable([['-I', x] for x in target.INCLUDE_PATHS]))
+    target.SHARED_LIBS=["-l"+_ for _ in target.SHARED_LIBS]
+    target.SHARED_LIBS_PATHS=["-L"+_ for _ in target.SHARED_LIBS_PATHS]
 
-    for i, e in enumerate(STATIC_LIBS):
-       STATIC_LIBS[i]=[_ for _ in glob.glob(e) if _.endswith(".a")]
-    STATIC_LIBS=list(itertools.chain.from_iterable(STATIC_LIBS))
-    STATIC_LIBS=(["-Wl,--start-group"] if PLATFORM!="darwin" else [])+STATIC_LIBS+(["-Wl,--end-group"] if PLATFORM!="darwin" else [])
+    for i, e in enumerate(target.SRC_FILES):
+       target.SRC_FILES[i]=[_ for _ in glob.glob(e) if get_object_file(_)]
+    target.SRC_FILES=list(itertools.chain.from_iterable(target.SRC_FILES))
+
+    for i, e in enumerate(target.STATIC_LIBS):
+       target.STATIC_LIBS[i]=[_ for _ in glob.glob(e) if _.endswith(".a")]
+    target.STATIC_LIBS=list(itertools.chain.from_iterable(target.STATIC_LIBS))
+    target.STATIC_LIBS=(["-Wl,--start-group"] if PLATFORM!="darwin" else [])+target.STATIC_LIBS+(["-Wl,--end-group"] if PLATFORM!="darwin" else [])
 
 
-    for file in SRC_FILES:
+    for file in target.SRC_FILES:
         object_file=get_object_file(file)
         if not object_file:
             continue
@@ -73,11 +71,11 @@ def build_target(target):
         modified_time=int(os.path.getmtime(file))
         CPP=file.endswith(".cpp")
         
-        subprocess.run([("g++" if CPP else "gcc")]+[("-std=c++20" if CPP else "-std=gnu99")]+ FLAGS+ ["-o",object_file,"-c",file]+ INCLUDE_PATHS)
+        subprocess.run([("g++" if CPP else "gcc")]+[("-std=c++20" if CPP else "-std=gnu99")]+ target.FLAGS+ ["-o",object_file,"-c",file]+ target.INCLUDE_PATHS)
         os.utime(object_file, (modified_time, modified_time))
 
     if not CLEAN:
-        subprocess.run(["g++"]+(["-shared"] if IS_LIB else [])+["-o", OUTPUT_NAME]+[get_object_file(_) for _ in SRC_FILES]+FLAGS+STATIC_LIBS+SHARED_LIBS_PATHS+SHARED_LIBS)
+        subprocess.run(["g++"]+(["-shared"] if target.IS_LIB else [])+["-o", target.OUTPUT_NAME]+[get_object_file(_) for _ in target.SRC_FILES]+target.FLAGS+target.STATIC_LIBS+target.SHARED_LIBS_PATHS+target.SHARED_LIBS)
 
 
 

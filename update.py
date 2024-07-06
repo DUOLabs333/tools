@@ -38,7 +38,7 @@ def get_dep_folder(dep):
     return dependencies_dir/dep
 
 def get_dep_path(dep, path):
-    return os.path.join(get_dep_folder, path)
+    return os.path.join(get_dep_folder(dep), path)
 
 def string_to_bool(string):
     if string=="0":
