@@ -6,6 +6,11 @@ from sys import platform as PLATFORM
 import itertools, subprocess, glob, re
 
 import inspect
+
+EXE=0
+LIB=1
+STATIC=2
+
 class BuildBase(object):
     SRC_FILES=[]
     INCLUDE_PATHS=[]
@@ -16,9 +21,9 @@ class BuildBase(object):
 
     OUTPUT_NAME="a.out"
 
-    IS_LIB=True
+    OUTPUT_TYPE=EXE
 
-
+# Type --- EXE, LIB, or OBJ. EXE has nothing, LIB uses "-shared", and OBJ uses "-r" (or maybe uses ac rcs)
 classes={}
 exec(open("Buildfile.py","r").read(),globals(), classes)
 
@@ -75,7 +80,12 @@ def build_target(target):
         os.utime(object_file, (modified_time, modified_time))
 
     if not CLEAN:
-        subprocess.run(["g++"]+(["-shared"] if target.IS_LIB else [])+["-o", target.OUTPUT_NAME]+[get_object_file(_) for _ in target.SRC_FILES]+target.FLAGS+target.STATIC_LIBS+target.SHARED_LIBS_PATHS+target.SHARED_LIBS)
+        OBJECT_FILES=[get_object_file(_) for _ in target.SRC_FILES]
+        if (target.OUTPUT_TYPE in [EXE, LIB]):
+            subprocess.run(["g++"]+(["-shared"] if target.OUTPUT_TYPE==LIB else [])+["-o", target.OUTPUT_NAME]+OBJECT_FILES+target.FLAGS+target.STATIC_LIBS+target.SHARED_LIBS_PATHS+target.SHARED_LIBS)
+        else:
+            subprocess.run(["ar", "-rcs", target.OUTPUT_NAME]+OBJECT_FILES)
+        
 
 
 
