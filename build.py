@@ -29,6 +29,7 @@ exec(open("Buildfile.py","r").read(),globals(), classes)
 
 CLEAN=string_to_bool(os.environ.get("CLEAN","0"))
 DEBUG=string_to_bool(os.environ.get("DEBUG","1"))
+CLIENT=string_to_bool(os.environ.get("CLIENT","1"))
 
 def get_object_file(name):
     if not (name.endswith(".cpp") or name.endswith(".c")):
@@ -40,7 +41,7 @@ def build_target(target):
         getattr(target, "build")()
         return
     
-    target.FLAGS=(["-g","-DDEBUG"] if DEBUG else ["-O3","-DNDEBUG"]) + ["-Wfatal-errors","-fPIC","-Winvalid-pch", "-g"]+(["-ggdb"] if PLATFORM=="linux" else [])+(["-mcpu=apple-a14" if PLATFORM=="darwin" else "-march=native"] if not DEBUG else [])+target.FLAGS
+    target.FLAGS=(["-g","-DDEBUG"] if DEBUG else ["-O3","-DNDEBUG"]) + ["-Wfatal-errors","-fPIC","-Winvalid-pch", "-g"]+(["-ggdb"] if PLATFORM=="linux" else [])+(["-mcpu=apple-a14" if PLATFORM=="darwin" else "-march=native"] if not DEBUG else [])+(["-DCLIENT" if CLIENT else [])+target.FLAGS
 
     target.INCLUDE_PATHS=list(itertools.chain.from_iterable([['-I', x] for x in target.INCLUDE_PATHS]))
     target.SHARED_LIBS=["-l"+_ for _ in target.SHARED_LIBS]
