@@ -24,8 +24,9 @@ class BuildBase(object):
     OUTPUT_TYPE=EXE
 
 # Type --- EXE, LIB, or OBJ. EXE has nothing, LIB uses "-shared", and OBJ uses "-r" (or maybe uses ac rcs)
-classes={}
+classes=globals()
 exec(open("Buildfile.py","r").read(),globals(), classes)
+
 
 CLEAN=string_to_bool(os.environ.get("CLEAN","0"))
 DEBUG=string_to_bool(os.environ.get("DEBUG","1"))
@@ -98,6 +99,9 @@ def build_target(target):
             subprocess.run(["g++"]+(["-shared"] if target.OUTPUT_TYPE==LIB else [])+["-o", target.OUTPUT_NAME]+OBJECT_FILES+target.FLAGS+target.STATIC_LIBS+target.SHARED_LIBS_PATHS+target.SHARED_LIBS)
         else:
             subprocess.run(["ar", "-rcs", target.OUTPUT_NAME]+OBJECT_FILES)
+    else:
+        if os.path.exists(target.OUTPUT_NAME):
+            os.remove(target.OUTPUT_NAME)
         
 
 
