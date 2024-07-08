@@ -41,7 +41,7 @@ def build_target(target):
         getattr(target, "build")()
         return
     
-    target.FLAGS=(["-g","-DDEBUG"] if DEBUG else ["-O3","-DNDEBUG"]) + ["-Wfatal-errors","-fPIC","-Winvalid-pch", "-g"]+(["-ggdb"] if PLATFORM=="linux" else [])+(["-mcpu=apple-a14" if PLATFORM=="darwin" else "-march=native"] if not DEBUG else [])+(["-DCLIENT" if CLIENT else [])+target.FLAGS
+    target.FLAGS=(["-g","-DDEBUG"] if DEBUG else ["-O3","-DNDEBUG"]) + ["-Wfatal-errors","-fPIC","-Winvalid-pch", "-g"]+(["-ggdb"] if PLATFORM=="linux" else [])+(["-mcpu=apple-a14" if PLATFORM=="darwin" else "-march=native"] if not DEBUG else [])+(["-DCLIENT"] if CLIENT else [])+target.FLAGS
 
     target.INCLUDE_PATHS=list(itertools.chain.from_iterable([['-I', x] for x in target.INCLUDE_PATHS]))
     target.SHARED_LIBS=["-l"+_ for _ in target.SHARED_LIBS]
@@ -80,6 +80,18 @@ def build_target(target):
         subprocess.run([("g++" if CPP else "gcc")]+[("-std=c++20" if CPP else "-std=gnu99")]+ target.FLAGS+ ["-o",object_file,"-c",file]+ target.INCLUDE_PATHS)
         os.utime(object_file, (modified_time, modified_time))
 
+    FILE_EXTENSION=""
+
+    if target.OUTPUT_TYPE==LIB:
+        if PLATFORM=="linux":
+            FILE_EXTENSION=".so"
+        elif PLATFORM=="darwin":
+            FILE_EXTENSION=".dylib"
+    elif target.OUTPUT_TYPE==STATIC:
+        FILE_EXTENSION=".a"
+
+    target.OUTPUT_NAME+=FILE_EXTENSION
+    
     if not CLEAN:
         OBJECT_FILES=[get_object_file(_) for _ in target.SRC_FILES]
         if (target.OUTPUT_TYPE in [EXE, LIB]):
