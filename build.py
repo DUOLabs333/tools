@@ -38,7 +38,6 @@ def get_object_file(name):
     return re.sub(r"^(.*)\.(.*)$",r"\1.o",name)
 
 def build_target(target):
-    print(f"Building target {target}...")
     if hasattr(target, "build"):
         getattr(target, "build")()
         return
@@ -111,7 +110,8 @@ for target in sys.argv[1:]:
     if target not in classes:
         print(f"Warning: Target {target} not found in file!")
         continue
-
+        
+    print(f"Building target {target}...")
     target=classes[target]()
     
     with cwd_ctx(os.getcwd()):
