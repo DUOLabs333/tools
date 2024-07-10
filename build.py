@@ -19,7 +19,7 @@ class BuildBase(object):
     SHARED_LIBS_PATHS=[]
     SHARED_LIBS=[]
 
-    OUTPUT_NAME="a.out"
+    OUTPUT_NAME=""
 
     OUTPUT_TYPE=EXE
 
@@ -32,18 +32,28 @@ CLEAN=string_to_bool(os.environ.get("CLEAN","0"))
 DEBUG=string_to_bool(os.environ.get("DEBUG","1"))
 CLIENT=string_to_bool(os.environ.get("CLIENT","1"))
 
+import inspect
+targets={}
+
+real_cwd=os.getcwd()
+
+def is_buildbase(cls):
+    return (BuildBase in inspect.getmro(cls)) and (cls!=BuildBase)
+    
 def get_object_file(name):
     if not (name.endswith(".cpp") or name.endswith(".c")):
         return None
     return re.sub(r"^(.*)\.(.*)$",r"\1.o",name)
 
-def build_target(target):
-    if hasattr(target, "build"):
-        getattr(target, "build")()
-        return
-
+def compile_target(target):
+    target=target()
     is_client=target.CLIENT if hasattr(target, "CLIENT") else CLIENT
+
+    if target.OUTPUT_NAME=="":
+        target.OUTPUT_NAME=target.__class__.__name__
+        
     target.FLAGS=(["-g","-DDEBUG"] if DEBUG else ["-O3","-DNDEBUG"]) + ["-Wfatal-errors","-fPIC","-Winvalid-pch", "-g"]+(["-ggdb"] if PLATFORM=="linux" else [])+(["-mcpu=apple-a14" if PLATFORM=="darwin" else "-march=native"] if not DEBUG else [])+(["-DCLIENT"] if is_client else [])+target.FLAGS
+
 
     target.INCLUDE_PATHS=list(itertools.chain.from_iterable([['-I', x] for x in target.INCLUDE_PATHS]))
     target.SHARED_LIBS=["-l"+_ for _ in target.SHARED_LIBS]
@@ -54,11 +64,38 @@ def build_target(target):
     target.SRC_FILES=list(itertools.chain.from_iterable(target.SRC_FILES))
 
     for i, e in enumerate(target.STATIC_LIBS):
+        if is_buildbase(e):
+            dep=targets[e.__name__]
+            build_target(dep)
+            
+            target.STATIC_LIBS[i]=dep.OUTPUT_NAME
+            continue
+            
        target.STATIC_LIBS[i]=[_ for _ in glob.glob(e) if _.endswith(".a")]
     target.STATIC_LIBS=list(itertools.chain.from_iterable(target.STATIC_LIBS))
     target.STATIC_LIBS=(["-Wl,--start-group"] if PLATFORM!="darwin" else [])+target.STATIC_LIBS+(["-Wl,--end-group"] if PLATFORM!="darwin" else [])
 
+    FILE_EXTENSION=""
+    
+    if target.OUTPUT_TYPE==LIB:
+        if PLATFORM=="linux":
+            FILE_EXTENSION=".so"
+        elif PLATFORM=="darwin":
+            FILE_EXTENSION=".dylib"
+    elif target.OUTPUT_TYPE==STATIC:
+        FILE_EXTENSION=".a"
 
+    target.OUTPUT_NAME+=FILE_EXTENSION
+
+    return target
+
+@cwd_ctx(real_cwd)
+def build_target(target):
+    print(f"{'Cleaning' if CLEAN else 'Building'} target {target}...")
+    if hasattr(target, "build"):
+        getattr(target, "build")()
+        return
+        
     for file in target.SRC_FILES:
         object_file=get_object_file(file)
         if not object_file:
@@ -82,17 +119,6 @@ def build_target(target):
         subprocess.run([("g++" if CPP else "gcc")]+[("-std=c++20" if CPP else "-std=gnu99")]+ target.FLAGS+ ["-o",object_file,"-c",file]+ target.INCLUDE_PATHS)
         os.utime(object_file, (modified_time, modified_time))
 
-    FILE_EXTENSION=""
-
-    if target.OUTPUT_TYPE==LIB:
-        if PLATFORM=="linux":
-            FILE_EXTENSION=".so"
-        elif PLATFORM=="darwin":
-            FILE_EXTENSION=".dylib"
-    elif target.OUTPUT_TYPE==STATIC:
-        FILE_EXTENSION=".a"
-
-    target.OUTPUT_NAME+=FILE_EXTENSION
     
     if not CLEAN:
         OBJECT_FILES=[get_object_file(_) for _ in target.SRC_FILES]
@@ -103,17 +129,15 @@ def build_target(target):
     else:
         if os.path.exists(target.OUTPUT_NAME):
             os.remove(target.OUTPUT_NAME)
-        
 
 
+for name, cls  in classes.getitems():
+    if is_buildbase(cls):
+        target[name]=compile_target(cls)
 
 for target in sys.argv[1:]:
-    if target not in classes:
+    if target not in targets:
         print(f"Warning: Target {target} not found in file!")
         continue
-        
-    print(f"{'Cleaning' if CLEAN else 'Building'} target {target}...")
-    target=classes[target]()
-    
-    with cwd_ctx(os.getcwd()):
-        build_target(target)
+
+    build_target(target)
