@@ -66,7 +66,7 @@ def compile_target(target):
     for i, e in enumerate(target.STATIC_LIBS):
         if is_buildbase(e):
             dep=targets[e.__name__]
-            build_target(dep)
+            build_target("DEPENDENCY", dep)
             
             e=dep.OUTPUT_NAME
 
@@ -89,8 +89,8 @@ def compile_target(target):
     return target
 
 @cwd_ctx(real_cwd)
-def build_target(target):
-    print(f"{'Cleaning' if CLEAN else 'Building'} target {target.__class__.__name__}...")
+def build_target(prefix, target):
+    print(f"{prefix}: {'Cleaning' if CLEAN else 'Building'} target {target.__class__.__name__}...")
     if hasattr(target, "build"):
         getattr(target, "build")()
         return
@@ -139,4 +139,4 @@ for target in sys.argv[1:]:
         print(f"Warning: Target {target} not found in file!")
         continue
 
-    build_target(targets[target])
+    build_target("REQUESTED", targets[target])
