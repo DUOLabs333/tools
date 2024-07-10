@@ -41,8 +41,9 @@ def build_target(target):
     if hasattr(target, "build"):
         getattr(target, "build")()
         return
-    
-    target.FLAGS=(["-g","-DDEBUG"] if DEBUG else ["-O3","-DNDEBUG"]) + ["-Wfatal-errors","-fPIC","-Winvalid-pch", "-g"]+(["-ggdb"] if PLATFORM=="linux" else [])+(["-mcpu=apple-a14" if PLATFORM=="darwin" else "-march=native"] if not DEBUG else [])+(["-DCLIENT"] if CLIENT else [])+target.FLAGS
+
+    is_client=target.CLIENT if hasattr(target, "CLIENT") else CLIENT
+    target.FLAGS=(["-g","-DDEBUG"] if DEBUG else ["-O3","-DNDEBUG"]) + ["-Wfatal-errors","-fPIC","-Winvalid-pch", "-g"]+(["-ggdb"] if PLATFORM=="linux" else [])+(["-mcpu=apple-a14" if PLATFORM=="darwin" else "-march=native"] if not DEBUG else [])+(["-DCLIENT"] if is_client else [])+target.FLAGS
 
     target.INCLUDE_PATHS=list(itertools.chain.from_iterable([['-I', x] for x in target.INCLUDE_PATHS]))
     target.SHARED_LIBS=["-l"+_ for _ in target.SHARED_LIBS]
