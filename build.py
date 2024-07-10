@@ -111,7 +111,7 @@ for target in sys.argv[1:]:
         print(f"Warning: Target {target} not found in file!")
         continue
         
-    print(f"Building target {target}...")
+    print(f"{'Cleaning' if CLEAN else 'Building'} target {target}...")
     target=classes[target]()
     
     with cwd_ctx(os.getcwd()):
