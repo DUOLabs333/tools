@@ -38,7 +38,7 @@ targets={}
 real_cwd=os.getcwd()
 
 def is_buildbase(cls):
-    return (BuildBase in inspect.getmro(cls)) and (cls!=BuildBase)
+    return inspect.isclass(cls) and (BuildBase in inspect.getmro(cls)) and (cls!=BuildBase)
     
 def get_object_file(name):
     if not (name.endswith(".cpp") or name.endswith(".c")):
@@ -68,10 +68,9 @@ def compile_target(target):
             dep=targets[e.__name__]
             build_target(dep)
             
-            target.STATIC_LIBS[i]=dep.OUTPUT_NAME
-            continue
-            
-       target.STATIC_LIBS[i]=[_ for _ in glob.glob(e) if _.endswith(".a")]
+            e=dep.OUTPUT_NAME
+
+        target.STATIC_LIBS[i]=[_ for _ in glob.glob(e) if _.endswith(".a")]
     target.STATIC_LIBS=list(itertools.chain.from_iterable(target.STATIC_LIBS))
     target.STATIC_LIBS=(["-Wl,--start-group"] if PLATFORM!="darwin" else [])+target.STATIC_LIBS+(["-Wl,--end-group"] if PLATFORM!="darwin" else [])
 
@@ -91,7 +90,7 @@ def compile_target(target):
 
 @cwd_ctx(real_cwd)
 def build_target(target):
-    print(f"{'Cleaning' if CLEAN else 'Building'} target {target}...")
+    print(f"{'Cleaning' if CLEAN else 'Building'} target {target.__class__.__name__}...")
     if hasattr(target, "build"):
         getattr(target, "build")()
         return
@@ -131,13 +130,13 @@ def build_target(target):
             os.remove(target.OUTPUT_NAME)
 
 
-for name, cls  in classes.getitems():
+for name, cls  in classes.copy().items():
     if is_buildbase(cls):
-        target[name]=compile_target(cls)
+        targets[name]=compile_target(cls)
 
 for target in sys.argv[1:]:
     if target not in targets:
         print(f"Warning: Target {target} not found in file!")
         continue
 
-    build_target(target)
+    build_target(targets[target])
