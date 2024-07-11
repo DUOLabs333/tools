@@ -2,7 +2,7 @@ from utils import *
 
 from sys import platform as PLATFORM
 
-import itertools, subprocess, glob, re, os, inspect
+import itertools, subprocess, glob, re, os, inspect, runpy
 
 EXE=0
 LIB=1
@@ -28,19 +28,23 @@ class BuildBase(object):
 # Type --- EXE, LIB, or OBJ. EXE has nothing, LIB uses "-shared", and OBJ uses "ld -r" 
 
 def import_build(path):
-
-    mod=import_module_from_file(os.path.join(path, "Buildfile.py"))
     
-    for name in dir(mod):
-        cls = getattr(mod, name)
+    with cwd_ctx(path):
+        runpy.run_path(parent_dir / "update.py")
+        
+        mod=import_module_from_file("Buildfile.py", globals_aux = globals())
+        
+        
+        for name in dir(mod):
+            cls = getattr(mod, name)
 
-        if is_buildbase(cls):
-            cls.CWD=path
-    return mod
+            if is_buildbase(cls):
+                cls.CWD=path
+        return mod
 
-CLEAN=string_to_bool(os.environ.get("CLEAN","0"))
-DEBUG=string_to_bool(os.environ.get("DEBUG","1"))
-CLIENT=string_to_bool(os.environ.get("CLIENT","1"))
+CLEAN=env_to_bool("CLEAN", False)
+DEBUG=env_to_bool("DEBUG", True)
+CLIENT=env_to_bool("CLIENT", True)
 
 targets={}
 compiled={}
