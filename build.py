@@ -1,11 +1,8 @@
-import sys, os
-from update import cwd_ctx, get_dep_path, string_to_bool
+from utils import *
 
 from sys import platform as PLATFORM
 
-import itertools, subprocess, glob, re, random, string
-
-import inspect, contextlib, importlib.util
+import itertools, subprocess, glob, re, os, inspect
 
 EXE=0
 LIB=1
@@ -31,19 +28,9 @@ class BuildBase(object):
 # Type --- EXE, LIB, or OBJ. EXE has nothing, LIB uses "-shared", and OBJ uses "ld -r" 
 
 def import_build(path):
-    module_name=''.join(random.choices(string.ascii_uppercase, k=5))
-    build_file=os.path.join(path, "Buildfile.py")
 
-    spec=importlib.util.spec_from_file_location(module_name, build_file)
-    mod=importlib.util.module_from_spec(spec)
-
-    globals_env=globals().copy()
-    del globals_env['__name__']
-
-    mod.__dict__.update(globals_env)
-    sys.modules[module_name]=mod
-    spec.loader.exec_module(mod)
-
+    mod=import_module_from_file(os.path.join(path, "Buildfile.py"))
+    
     for name in dir(mod):
         cls = getattr(mod, name)
 
@@ -55,7 +42,6 @@ CLEAN=string_to_bool(os.environ.get("CLEAN","0"))
 DEBUG=string_to_bool(os.environ.get("DEBUG","1"))
 CLIENT=string_to_bool(os.environ.get("CLIENT","1"))
 
-import inspect
 targets={}
 compiled={}
 
@@ -109,15 +95,6 @@ def compile_target(target):
     target.OUTPUT_NAME+=FILE_EXTENSION
 
     compiled[target.__class__]=target
-
-@contextlib.contextmanager
-def cwd_ctx(path=os.getcwd()):
-    curdir = os.getcwd()
-    os.chdir(path)
-    try:
-        yield
-    finally:
-        os.chdir(curdir)
 
 def build_target(prefix, target):
 
