@@ -3,9 +3,9 @@ from update import cwd_ctx, get_dep_path, string_to_bool
 
 from sys import platform as PLATFORM
 
-import itertools, subprocess, glob, re
+import itertools, subprocess, glob, re, random, string
 
-import inspect
+import inspect, contextlib, importlib.util
 
 EXE=0
 LIB=1
@@ -21,12 +21,35 @@ class BuildBase(object):
 
     OUTPUT_NAME=""
 
+    CWD="."
+
     OUTPUT_TYPE=EXE
 
-# Type --- EXE, LIB, or OBJ. EXE has nothing, LIB uses "-shared", and OBJ uses "-r" (or maybe uses ac rcs)
-classes=globals()
-exec(open("Buildfile.py","r").read(),globals(), classes)
+    def absolute(cls, attr):
+        return os.path.join(cls.CWD, getattr(cls,attr))
 
+# Type --- EXE, LIB, or OBJ. EXE has nothing, LIB uses "-shared", and OBJ uses "ld -r" 
+
+def import_build(path):
+    module_name=''.join(random.choices(string.ascii_uppercase, k=5))
+    build_file=os.path.join(path, "Buildfile.py")
+
+    spec=importlib.util.spec_from_file_location(module_name, build_file)
+    mod=importlib.util.module_from_spec(spec)
+
+    globals_env=globals().copy()
+    del globals_env['__name__']
+
+    mod.__dict__.update(globals_env)
+    sys.modules[module_name]=mod
+    spec.loader.exec_module(mod)
+
+    for name in dir(mod):
+        cls = getattr(mod, name)
+
+        if is_buildbase(cls):
+            cls.CWD=path
+    return mod
 
 CLEAN=string_to_bool(os.environ.get("CLEAN","0"))
 DEBUG=string_to_bool(os.environ.get("DEBUG","1"))
@@ -34,8 +57,7 @@ CLIENT=string_to_bool(os.environ.get("CLIENT","1"))
 
 import inspect
 targets={}
-
-real_cwd=os.getcwd()
+compiled={}
 
 def is_buildbase(cls):
     return inspect.isclass(cls) and (BuildBase in inspect.getmro(cls)) and (cls!=BuildBase)
@@ -46,6 +68,9 @@ def get_object_file(name):
     return re.sub(r"^(.*)\.(.*)$",r"\1.o",name)
 
 def compile_target(target):
+    if target in compiled:
+        return
+
     target=target()
     is_client=target.CLIENT if hasattr(target, "CLIENT") else CLIENT
 
@@ -65,10 +90,7 @@ def compile_target(target):
 
     for i, e in enumerate(target.STATIC_LIBS):
         if is_buildbase(e):
-            dep=targets[e.__name__]
-            build_target("DEPENDENCY", dep)
-            
-            e=dep.OUTPUT_NAME
+            e=build_target("DEPENDENCY", e).absolute("OUTPUT_NAME")
 
         target.STATIC_LIBS[i]=[_ for _ in glob.glob(e) if _.endswith(".a")]
     target.STATIC_LIBS=list(itertools.chain.from_iterable(target.STATIC_LIBS))
@@ -86,57 +108,71 @@ def compile_target(target):
 
     target.OUTPUT_NAME+=FILE_EXTENSION
 
-    return target
+    compiled[target.__class__]=target
 
-@cwd_ctx(real_cwd)
+@contextlib.contextmanager
+def cwd_ctx(path=os.getcwd()):
+    curdir = os.getcwd()
+    os.chdir(path)
+    try:
+        yield
+    finally:
+        os.chdir(curdir)
+
 def build_target(prefix, target):
-    print(f"{prefix}: {'Cleaning' if CLEAN else 'Building'} target {target.__class__.__name__}...")
-    if hasattr(target, "build"):
-        getattr(target, "build")()
-        return
-        
-    for file in target.SRC_FILES:
-        object_file=get_object_file(file)
-        if not object_file:
-            continue
-        
-        if CLEAN:
-            try:
-                os.remove(object_file)
-            except OSError:
-                pass
-            continue
+
+    with cwd_ctx(target.CWD):
+        compile_target(target)
+
+        target=compiled[target]
+
+        print(f"{prefix}: {'Cleaning' if CLEAN else 'Building'} target {target.__class__.__name__}...")
+        if hasattr(target, "build"):
+            getattr(target, "build")()
+            return
             
-        if os.path.exists(object_file):
-            if int(os.path.getmtime(object_file))==int(os.path.getmtime(file)):
+        for file in target.SRC_FILES:
+            object_file=get_object_file(file)
+            if not object_file:
                 continue
-            os.remove(object_file)
+            
+            if CLEAN:
+                try:
+                    os.remove(object_file)
+                except OSError:
+                    pass
+                continue
                 
-        modified_time=int(os.path.getmtime(file))
-        CPP=file.endswith(".cpp")
+            if os.path.exists(object_file):
+                if int(os.path.getmtime(object_file))==int(os.path.getmtime(file)):
+                    continue
+                os.remove(object_file)
+                    
+            modified_time=int(os.path.getmtime(file))
+            CPP=file.endswith(".cpp")
+            
+            subprocess.run([("g++" if CPP else "gcc")]+[("-std=c++20" if CPP else "-std=gnu99")]+ target.FLAGS+ ["-o",object_file,"-c",file]+ target.INCLUDE_PATHS)
+            os.utime(object_file, (modified_time, modified_time))
+
         
-        subprocess.run([("g++" if CPP else "gcc")]+[("-std=c++20" if CPP else "-std=gnu99")]+ target.FLAGS+ ["-o",object_file,"-c",file]+ target.INCLUDE_PATHS)
-        os.utime(object_file, (modified_time, modified_time))
-
-    
-    if not CLEAN:
-        OBJECT_FILES=[get_object_file(_) for _ in target.SRC_FILES]
-        if (target.OUTPUT_TYPE in [EXE, LIB]):
-            subprocess.run(["g++"]+(["-shared"] if target.OUTPUT_TYPE==LIB else [])+["-o", target.OUTPUT_NAME]+OBJECT_FILES+target.FLAGS+target.STATIC_LIBS+target.SHARED_LIBS_PATHS+target.SHARED_LIBS)
+        if not CLEAN:
+            OBJECT_FILES=[get_object_file(_) for _ in target.SRC_FILES]
+            if (target.OUTPUT_TYPE in [EXE, LIB]):
+                subprocess.run(["g++"]+(["-shared"] if target.OUTPUT_TYPE==LIB else [])+["-o", target.OUTPUT_NAME]+OBJECT_FILES+target.FLAGS+target.STATIC_LIBS+target.SHARED_LIBS_PATHS+target.SHARED_LIBS)
+            else:
+                subprocess.run(["ar", "-rcs", target.OUTPUT_NAME]+OBJECT_FILES)
         else:
-            subprocess.run(["ar", "-rcs", target.OUTPUT_NAME]+OBJECT_FILES)
-    else:
-        if os.path.exists(target.OUTPUT_NAME):
-            os.remove(target.OUTPUT_NAME)
+            if os.path.exists(target.OUTPUT_NAME):
+                os.remove(target.OUTPUT_NAME)
 
-
-for name, cls  in classes.copy().items():
-    if is_buildbase(cls):
-        targets[name]=compile_target(cls)
+        return target
 
 for target in sys.argv[1:]:
-    if target not in targets:
+    main=import_build(os.getcwd())
+
+    target=getattr(main, target, None)
+    if (target==None) or (not is_buildbase(target)):
         print(f"Warning: Target {target} not found in file!")
         continue
 
-    build_target("REQUESTED", targets[target])
+    build_target("REQUESTED", target)
