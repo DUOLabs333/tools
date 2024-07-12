@@ -4,6 +4,8 @@ from sys import platform as PLATFORM
 
 import itertools, subprocess, glob, re, os, inspect, runpy
 
+import pathlib
+
 EXE=0
 LIB=1
 STATIC=2
@@ -84,7 +86,6 @@ def compile_target(target):
 
         target.STATIC_LIBS[i]=[_ for _ in glob.glob(e) if _.endswith(".a")]
     target.STATIC_LIBS=list(itertools.chain.from_iterable(target.STATIC_LIBS))
-    target.STATIC_LIBS=(["-Wl,--start-group"] if PLATFORM!="darwin" else [])+target.STATIC_LIBS+(["-Wl,--end-group"] if PLATFORM!="darwin" else [])
 
     FILE_EXTENSION=""
     
@@ -139,9 +140,11 @@ def build_target(prefix, target):
         if not CLEAN:
             OBJECT_FILES=[get_object_file(_) for _ in target.SRC_FILES]
             if (target.OUTPUT_TYPE in [EXE, LIB]):
-                subprocess.run(["g++"]+(["-shared"] if target.OUTPUT_TYPE==LIB else [])+["-o", target.OUTPUT_NAME]+OBJECT_FILES+target.FLAGS+target.STATIC_LIBS+target.SHARED_LIBS_PATHS+target.SHARED_LIBS)
+                subprocess.run(["g++"]+(["-shared"] if target.OUTPUT_TYPE==LIB else [])+["-o", target.OUTPUT_NAME]+OBJECT_FILES+target.FLAGS+(["-Wl,--start-group"] if PLATFORM!="darwin" else [])+target.STATIC_LIBS+(["-Wl,--end-group"] if PLATFORM!="darwin" else [])+target.SHARED_LIBS_PATHS+target.SHARED_LIBS)
             else:
-                subprocess.run(["ar", "-rcs", target.OUTPUT_NAME]+OBJECT_FILES)
+                pathlib.Path(target.OUTPUT_NAME).unlink(missing_ok=True)
+                subprocess.run(["ar", "-rcT", target.OUTPUT_NAME]+OBJECT_FILES+target.STATIC_LIBS)
+                subprocess.run(["ar", "-M"], input="\n".join([f'create "{target.OUTPUT_NAME}"']+[f'addlib "{target.OUTPUT_NAME}"']+["save", "end"]),text=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
         else:
             if os.path.exists(target.OUTPUT_NAME):
                 os.remove(target.OUTPUT_NAME)
