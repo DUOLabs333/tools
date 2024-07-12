@@ -143,7 +143,12 @@ def build_target(prefix, target):
                 subprocess.run(["g++"]+(["-shared"] if target.OUTPUT_TYPE==LIB else [])+["-o", target.OUTPUT_NAME]+OBJECT_FILES+target.FLAGS+(["-Wl,--start-group"] if PLATFORM!="darwin" else [])+target.STATIC_LIBS+(["-Wl,--end-group"] if PLATFORM!="darwin" else [])+target.SHARED_LIBS_PATHS+target.SHARED_LIBS)
             else:
                 pathlib.Path(target.OUTPUT_NAME).unlink(missing_ok=True)
-                subprocess.run(["ar", "-rcT", target.OUTPUT_NAME]+OBJECT_FILES+target.STATIC_LIBS)
+                if PLATFORM=="darwin":
+                    ar=["libtool", "-static", "-o"]
+                else:
+                    ar=["ar", "-rcT"]
+
+                subprocess.run(ar+[target.OUTPUT_NAME]+OBJECT_FILES+target.STATIC_LIBS)
                 subprocess.run(["ar", "-M"], input="\n".join([f'create "{target.OUTPUT_NAME}"']+[f'addlib "{target.OUTPUT_NAME}"']+["save", "end"]),text=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
         else:
             if os.path.exists(target.OUTPUT_NAME):
