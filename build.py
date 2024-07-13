@@ -23,11 +23,25 @@ class BuildBase(object):
     CWD="."
 
     OUTPUT_TYPE=EXE
-
-    def absolute(cls, attr):
-        return os.path.join(cls.CWD, getattr(cls,attr))
+    
+    def absolute_path(cls, attr):
+        obj=getattr(cls, attr)
+        if isinstance(attr, str):
+            return os.path.join(cls.CWD, obj)
+        else:
+            return [os.path.join(cls.CWD, _) for _ in obj]
 
 # Type --- EXE, LIB, or OBJ. EXE has nothing, LIB uses "-shared", and OBJ uses "ld -r" 
+
+def _flatten(obj):
+    if isinstance(obj, (list, tuple)):
+        for item in obj:
+            yield from _flatten(item)
+    else:
+        yield obj
+
+def flatten(obj):
+    return [_ for _ in _flatten(obj)]
 
 def import_build(path):
     
@@ -71,21 +85,24 @@ def compile_target(target):
         
     target.FLAGS=(["-g","-DDEBUG"] if DEBUG else ["-O3","-DNDEBUG"]) + ["-Wfatal-errors","-fPIC","-Winvalid-pch", "-g"]+(["-ggdb"] if PLATFORM=="linux" else [])+(["-mcpu=apple-a14" if PLATFORM=="darwin" else "-march=native"] if not DEBUG else [])+(["-DCLIENT"] if is_client else [])+target.FLAGS
 
+    for i, e in enumerate(target.INCLUDE_PATHS):
+        if is_buildbase(e):
+            tables.INCLUDE_PATHS[i]=build_target("DEPENDENCY", e).CWD
 
-    target.INCLUDE_PATHS=list(itertools.chain.from_iterable([['-I', x] for x in target.INCLUDE_PATHS]))
+    target.INCLUDE_PATHS=flatten([['-I', x] for x in target.INCLUDE_PATHS])
+
     target.SHARED_LIBS=["-l"+_ for _ in target.SHARED_LIBS]
     target.SHARED_LIBS_PATHS=["-L"+_ for _ in target.SHARED_LIBS_PATHS]
 
     for i, e in enumerate(target.SRC_FILES):
        target.SRC_FILES[i]=[_ for _ in glob.glob(e) if get_object_file(_)]
     target.SRC_FILES=list(itertools.chain.from_iterable(target.SRC_FILES))
-
+    
     for i, e in enumerate(target.STATIC_LIBS):
         if is_buildbase(e):
-            e=build_target("DEPENDENCY", e).absolute("OUTPUT_NAME")
+            target.STATIC_LIBS[i]=build_target("DEPENDENCY", e).absolute_path("OUTPUT_NAME")
 
-        target.STATIC_LIBS[i]=[_ for _ in glob.glob(e) if _.endswith(".a")]
-    target.STATIC_LIBS=list(itertools.chain.from_iterable(target.STATIC_LIBS))
+    target.STATIC_LIBS=flatten([[_ for _ in glob.glob(e) if _.endswith(".a")] for e in target.STATIC_LIBS])
 
     FILE_EXTENSION=""
     
