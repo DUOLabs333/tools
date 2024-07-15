@@ -88,7 +88,7 @@ def compile_target(target):
 
     for i, e in enumerate(target.INCLUDE_PATHS):
         if is_buildbase(e):
-            tables.INCLUDE_PATHS[i]=build_target("DEPENDENCY", e).CWD
+            target.INCLUDE_PATHS[i]=build_target("DEPENDENCY", e).CWD
 
     target.INCLUDE_PATHS=flatten([['-I', x] for x in target.INCLUDE_PATHS])
 
