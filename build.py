@@ -44,7 +44,7 @@ def _flatten(obj):
 def flatten(obj):
     return [_ for _ in _flatten(obj)]
 
-def import_build(path):
+def import_build(path, external=True):
     
     with cwd_ctx(path):
         runpy.run_path(parent_dir / "update.py")
@@ -57,6 +57,7 @@ def import_build(path):
 
             if is_buildbase(cls):
                 cls.CWD=path
+                cls.EXTERNAL=external
         return mod
 
 CLEAN=env_to_bool("CLEAN", False)
@@ -79,13 +80,18 @@ def get_object_file(name):
 def compile_target(target):
     if target in compiled:
         return
-
+    
     target=target()
     is_client=target.CLIENT if hasattr(target, "CLIENT") else CLIENT
 
     if target.OUTPUT_NAME=="":
         target.OUTPUT_NAME=target.__class__.__name__
-        
+    
+    if (target.EXTERNAL):
+        target.CLEAN=False
+    else:
+        target.CLEAN=CLEAN
+
     target.FLAGS=(["-g","-DDEBUG"] if DEBUG else ["-O3","-DNDEBUG"]) + ["-Wfatal-errors","-fPIC","-Winvalid-pch", "-g"]+(["-ggdb"] if PLATFORM=="linux" else [])+(["-march=native"] if not DEBUG else [])+(["-DCLIENT"] if is_client else [])+target.FLAGS
 
     for i, e in enumerate(target.INCLUDE_PATHS):
@@ -128,7 +134,7 @@ def build_target(prefix, target):
 
         target=compiled[target]
 
-        print(f"{prefix}: {'Cleaning' if CLEAN else 'Building'} target {target.__class__.__name__}...")
+        print(f"{prefix}: {'Cleaning' if target.CLEAN else 'Building'} target {target.__class__.__name__}...")
         if hasattr(target, "build"):
             getattr(target, "build")()
             return
@@ -138,7 +144,7 @@ def build_target(prefix, target):
             if not object_file:
                 continue
             
-            if CLEAN:
+            if target.CLEAN:
                 try:
                     os.remove(object_file)
                 except OSError:
@@ -157,7 +163,7 @@ def build_target(prefix, target):
             os.utime(object_file, (modified_time, modified_time))
 
         
-        if not CLEAN:
+        if not target.CLEAN:
             OBJECT_FILES=[get_object_file(_) for _ in target.SRC_FILES]
             if (target.OUTPUT_TYPE in [EXE, LIB]):
                 subprocess.run([CXX]+(["-shared"] if target.OUTPUT_TYPE==LIB else [])+["-o", target.OUTPUT_NAME]+OBJECT_FILES+target.FLAGS+(["-Wl,--start-group"] if PLATFORM!="darwin" else [])+target.STATIC_LIBS+(["-Wl,--end-group"] if PLATFORM!="darwin" else [])+target.SHARED_LIBS_PATHS+target.SHARED_LIBS)
@@ -177,7 +183,7 @@ def build_target(prefix, target):
         return target
 
 for target in sys.argv[1:]:
-    main=import_build(os.getcwd())
+    main=import_build(os.getcwd(), external=False)
 
     target=getattr(main, target, None)
     if (target==None) or (not is_buildbase(target)):
