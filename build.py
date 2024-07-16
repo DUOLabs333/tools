@@ -62,6 +62,8 @@ def import_build(path):
 CLEAN=env_to_bool("CLEAN", False)
 DEBUG=env_to_bool("DEBUG", True)
 CLIENT=env_to_bool("CLIENT", True)
+CC=os.environ.get("CC", "cc")
+CXX=os.environ.get("CXX", "c++")
 
 targets={}
 compiled={}
@@ -84,7 +86,7 @@ def compile_target(target):
     if target.OUTPUT_NAME=="":
         target.OUTPUT_NAME=target.__class__.__name__
         
-    target.FLAGS=(["-g","-DDEBUG"] if DEBUG else ["-O3","-DNDEBUG"]) + ["-Wfatal-errors","-fPIC","-Winvalid-pch", "-g"]+(["-ggdb"] if PLATFORM=="linux" else [])+(["-mcpu=apple-a14" if PLATFORM=="darwin" else "-march=native"] if not DEBUG else [])+(["-DCLIENT"] if is_client else [])+target.FLAGS
+    target.FLAGS=(["-g","-DDEBUG"] if DEBUG else ["-O3","-DNDEBUG"]) + ["-Wfatal-errors","-fPIC","-Winvalid-pch", "-g"]+(["-ggdb"] if PLATFORM=="linux" else [])+(["-march=native"] if not DEBUG else [])+(["-DCLIENT"] if is_client else [])+target.FLAGS
 
     for i, e in enumerate(target.INCLUDE_PATHS):
         if is_buildbase(e):
@@ -151,14 +153,14 @@ def build_target(prefix, target):
             modified_time=int(os.path.getmtime(file))
             CPP=file.endswith(".cpp")
             
-            subprocess.run([("g++" if CPP else "gcc")]+[("-std=c++20" if CPP else "-std=gnu99")]+ target.FLAGS+ ["-o",object_file,"-c",file]+ target.INCLUDE_PATHS)
+            subprocess.run([(CXX if CPP else CC)]+[("-std=c++20" if CPP else "-std=gnu99")]+ target.FLAGS+ ["-o",object_file,"-c",file]+ target.INCLUDE_PATHS)
             os.utime(object_file, (modified_time, modified_time))
 
         
         if not CLEAN:
             OBJECT_FILES=[get_object_file(_) for _ in target.SRC_FILES]
             if (target.OUTPUT_TYPE in [EXE, LIB]):
-                subprocess.run(["g++"]+(["-shared"] if target.OUTPUT_TYPE==LIB else [])+["-o", target.OUTPUT_NAME]+OBJECT_FILES+target.FLAGS+(["-Wl,--start-group"] if PLATFORM!="darwin" else [])+target.STATIC_LIBS+(["-Wl,--end-group"] if PLATFORM!="darwin" else [])+target.SHARED_LIBS_PATHS+target.SHARED_LIBS)
+                subprocess.run([CXX]+(["-shared"] if target.OUTPUT_TYPE==LIB else [])+["-o", target.OUTPUT_NAME]+OBJECT_FILES+target.FLAGS+(["-Wl,--start-group"] if PLATFORM!="darwin" else [])+target.STATIC_LIBS+(["-Wl,--end-group"] if PLATFORM!="darwin" else [])+target.SHARED_LIBS_PATHS+target.SHARED_LIBS)
             else:
                 pathlib.Path(target.OUTPUT_NAME).unlink(missing_ok=True)
                 if PLATFORM=="darwin":
