@@ -42,4 +42,4 @@ class Vulkan_Headers:
 
 class glaze:
     def download(cls):
-        git_clone("stephenberry/glaze", branch="2.6.0")
+        git_clone("stephenberry/glaze", branch="v2.6.0")
