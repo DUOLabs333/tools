@@ -17,10 +17,10 @@ def get_targets(): #Parse arguments into the proper format
 
 
 def git_clone(path, host="github.com", dest_dir=".", keep_dot_git=False, branch=None):
-    subprocess.run(["git", "clone", "--depth=1"]+(["-b", branch] if branch else [])+[f"{host}/{path}", dest_dir])
+    subprocess.run(["git", "clone", "--depth=1"]+(["-b", branch] if branch else [])+[f"https://{host}/{path}", dest_dir])
 
     if not keep_dot_git:
-        shutil.rmtree(os.path.join(dest_dir, ".git"))
+        shutil.rmtree(os.path.join(dest_dir, ".git"),ignore_errors=True)
 
 def curl(url, dest_dir=".", dest_file=None):
     subprocess.run(["curl", "-L", "--create-dirs", "--output-dir", dest_dir]+(["-o", dest_file] if dest_file else [])+[url])
@@ -33,7 +33,7 @@ def execute_target(target):
     name, actions=target
     
     name=name.replace("-", "_")
-    formula=getattr(formulas, name)
+    formula=getattr(formulas, name)()
     dest_dir=get_dep_folder(name)
 
     if "delete" in actions:
