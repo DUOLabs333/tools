@@ -16,8 +16,8 @@ def get_targets(): #Parse arguments into the proper format
     return targets
 
 
-def git_clone(path, host="github.com", dest_dir=".", keep_dot_git=False):
-    subprocess.run(["git", "clone", "--depth=1", f"{host}/{path}", dest_dir])
+def git_clone(path, host="github.com", dest_dir=".", keep_dot_git=False, branch=None):
+    subprocess.run(["git", "clone", "--depth=1"]+(["-b", branch] if branch else [])+[f"{host}/{path}", dest_dir])
 
     if not keep_dot_git:
         shutil.rmtree(os.path.join(dest_dir, ".git"))
@@ -33,7 +33,7 @@ def execute_target(target):
     name, actions=target
     
     name=name.replace("-", "_")
-    formula=formulas[name]
+    formula=getattr(formulas, name)
     dest_dir=get_dep_folder(name)
 
     if "delete" in actions:
@@ -71,7 +71,7 @@ if __name__=="__main__":
         else:
             sys.argv.extend([f"{_.strip()}=download,build" for _ in open("Depfile", "r").read()])
             
-    actions=get_targets()
+    targets=get_targets()
     for target in targets:
         execute_target(target)
 
