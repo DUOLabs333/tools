@@ -19,6 +19,7 @@ class BuildBase(object):
     SHARED_LIBS_PATHS=[]
     SHARED_LIBS=[]
     DEPENDENCIES=[] #Escape hatch for arbitrary dependencies that aren't describable in any pre-existing model
+    FRAMEWORKS=[]
 
     OUTPUT_NAME=""
 
@@ -114,6 +115,8 @@ def compile_target(target):
 
     target.STATIC_LIBS=flatten([[_ for _ in glob.glob(e) if _.endswith(".a")] for e in target.STATIC_LIBS])
     
+    target.FRAMEWORKS=flatten([["-framework", _] for _ in target.FRAMEWORKS])
+    
     for dep in target.DEPENDENCIES:
         build_target("DEPENDENCY", dep)
         
@@ -170,7 +173,7 @@ def build_target(prefix, target):
         if not target.CLEAN:
             OBJECT_FILES=[get_object_file(_) for _ in target.SRC_FILES]
             if (target.OUTPUT_TYPE in [EXE, LIB]):
-                subprocess.run([CXX]+(["-shared"] if target.OUTPUT_TYPE==LIB else [])+["-o", target.OUTPUT_NAME]+OBJECT_FILES+target.FLAGS+(["-Wl,--start-group"] if PLATFORM!="darwin" else [])+target.STATIC_LIBS+(["-Wl,--end-group"] if PLATFORM!="darwin" else [])+target.SHARED_LIBS_PATHS+target.SHARED_LIBS)
+                subprocess.run([CXX]+(["-shared"] if target.OUTPUT_TYPE==LIB else [])+["-o", target.OUTPUT_NAME]+OBJECT_FILES+target.FLAGS+(["-Wl,--start-group"] if PLATFORM!="darwin" else [])+target.STATIC_LIBS+(["-Wl,--end-group"] if PLATFORM!="darwin" else [])+target.SHARED_LIBS_PATHS+target.SHARED_LIBS+(target.FRAMEWORKS if PLATFORM=="darwin" else []))
             else:
                 pathlib.Path(target.OUTPUT_NAME).unlink(missing_ok=True)
                 if PLATFORM=="darwin":
