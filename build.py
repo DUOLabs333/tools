@@ -129,7 +129,10 @@ def compile_target(target):
             FILE_EXTENSION=".dylib"
     elif target.OUTPUT_TYPE==STATIC:
         FILE_EXTENSION=".a"
-
+    
+    if target.OUTPUT_NAME=="":
+        target.OUTPUT_NAME=target.__class__.__name__
+        
     target.OUTPUT_NAME+=FILE_EXTENSION
 
     compiled[target.__class__]=target
