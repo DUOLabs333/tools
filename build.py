@@ -18,6 +18,7 @@ class BuildBase(object):
     STATIC_LIBS=[]
     SHARED_LIBS_PATHS=[]
     SHARED_LIBS=[]
+    DEPENDENCIES=[] #Escape hatch for arbitrary dependencies that aren't describable in any pre-existing model
 
     OUTPUT_NAME=""
 
@@ -112,7 +113,10 @@ def compile_target(target):
             target.STATIC_LIBS[i]=build_target("DEPENDENCY", e).absolute_path("OUTPUT_NAME")
 
     target.STATIC_LIBS=flatten([[_ for _ in glob.glob(e) if _.endswith(".a")] for e in target.STATIC_LIBS])
-
+    
+    for dep in target.DEPENDENCIES:
+        build_target("DEPENDENCY", dep)
+        
     FILE_EXTENSION=""
     
     if target.OUTPUT_TYPE==LIB:
