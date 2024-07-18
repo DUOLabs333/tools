@@ -65,7 +65,7 @@ def import_build(path, external=True):
 
 CLEAN=env_to_bool("CLEAN", False)
 DEBUG=env_to_bool("DEBUG", True)
-CLIENT=env_to_bool("CLIENT", True)
+CLIENT=env_to_bool("CLIENT", False if PLATFORM=="darwin" else True)
 CC=os.environ.get("CC", "cc")
 CXX=os.environ.get("CXX", "c++")
 
