@@ -72,6 +72,8 @@ CXX=os.environ.get("CXX", "c++")
 targets={}
 compiled={}
 
+FRAMEWORKS_PATHS=[f"{os.path.expanduser('~')}/.nix-profile/Library/Frameworks"]
+FRAMEWORKS_PATHS=[f"-F{_}" for _ in FRAMEWORKS_PATHS]
 def is_buildbase(cls):
     return inspect.isclass(cls) and (BuildBase in inspect.getmro(cls)) and (cls!=BuildBase)
     
@@ -174,7 +176,7 @@ def build_target(prefix, target):
         if not target.CLEAN:
             OBJECT_FILES=[get_object_file(_) for _ in target.SRC_FILES]
             if (target.OUTPUT_TYPE in [EXE, LIB]):
-                subprocess.run([CXX]+(["-shared"] if target.OUTPUT_TYPE==LIB else [])+["-o", target.OUTPUT_NAME]+OBJECT_FILES+target.FLAGS+(["-Wl,--start-group"] if PLATFORM!="darwin" else [])+target.STATIC_LIBS+(["-Wl,--end-group"] if PLATFORM!="darwin" else [])+target.SHARED_LIBS_PATHS+target.SHARED_LIBS+(target.FRAMEWORKS if PLATFORM=="darwin" else []))
+                subprocess.run([CXX]+(["-shared"] if target.OUTPUT_TYPE==LIB else [])+["-o", target.OUTPUT_NAME]+OBJECT_FILES+target.FLAGS+(["-Wl,--start-group"] if PLATFORM!="darwin" else [])+target.STATIC_LIBS+(["-Wl,--end-group"] if PLATFORM!="darwin" else [])+target.SHARED_LIBS_PATHS+target.SHARED_LIBS+(FRAMEWORKS_PATHS+target.FRAMEWORKS if PLATFORM=="darwin" else []))
             else:
                 pathlib.Path(target.OUTPUT_NAME).unlink(missing_ok=True)
                 if PLATFORM=="darwin":
