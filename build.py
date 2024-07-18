@@ -58,7 +58,8 @@ def import_build(path, external=True):
             cls = getattr(mod, name)
 
             if is_buildbase(cls):
-                cls.CWD=path
+                cwd=getattr(cls, "CWD", path)
+                cls.CWD=os.path.abspath(cwd)
                 cls.EXTERNAL=external
         return mod
 
