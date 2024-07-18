@@ -17,7 +17,7 @@ def cwd_ctx(path=os.getcwd()):
 def get_dep_folder(dep):
     return dependencies_dir/dep
 
-def get_dep_path(dep, path):
+def get_dep_path(dep, path=""):
     return os.path.join(get_dep_folder(dep), path)
 
 def env_to_bool(key, default):
