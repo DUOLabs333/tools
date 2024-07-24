@@ -1,5 +1,5 @@
 import os, pathlib, contextlib, string, random, sys
-import contextlib, importlib.util
+import contextlib, importlib.util, statistics
 
 parent_dir=pathlib.Path(__file__).parent
 dependencies_dir=parent_dir / "external"
@@ -45,3 +45,38 @@ def import_module_from_file(path, globals_aux={}):
     spec.loader.exec_module(mod) 
 
     return mod
+
+@contextlib.contextmanager
+def BuildOnChange(sources, output):
+    """
+        Should be used as 
+        with BuildOnChange("a.cpp", "b.exe") as skip:
+            skip() # This line is needed as Python does not allow you to skip the body of a context manager
+            ...
+    """
+    if not isinstance(sources, list):
+        sources=[sources]
+
+    skip_error=ValueError()
+    sources_mtime=int(statistics.fmean(list(map(os.path.getmtime, sources))))
+    
+    output_mtime=int(os.getmtime(output)) if os.path.exists(output) else None
+    
+    skip=True if ((output_mtime!=None) and (output_mtime==sources_mtime)) else False
+
+    def command():
+        if skip:
+            raise skip_error
+    
+    set_time=True
+    try:
+        yield
+    except ValueError as e:
+        if e!=skip_error:
+            set_time=False
+            raise
+    finally:
+        if (not skip) and set_time and os.path.exists(output):
+                os.utime(output, (sources_mtime, sources_mtime))
+
+
