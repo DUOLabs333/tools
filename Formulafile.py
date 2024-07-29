@@ -40,6 +40,12 @@ class Vulkan_Headers:
     def download(cls):
         git_clone("KhronosGroup/Vulkan-Headers")
 
+class xxHash_3:
+    def download(cls):
+        git_clone("pombredanne/xxHash-3")
+    def build(cls):
+        subprocess.run(["make", "libxxhash.a"])
+        
 class glaze:
     def download(cls):
         git_clone("stephenberry/glaze", branch="v2.6.0")
