@@ -60,18 +60,18 @@ def execute_target(target):
                 func()
                 action_file.touch(exist_ok=True)
 
-
+formulas=import_module_from_file(parent_dir / "Formulafile.py", globals_aux=globals())
 if __name__=="__main__":
 
-    formulas=import_module_from_file(parent_dir / "Formulafile.py", globals_aux=globals())
+    targets=get_targets()
+
     if len(sys.argv)<2:
         if not os.path.exists("Depfile"):
             print("WARNING: No Depfile found! Exiting")
             sys.exit()
         else:
-            sys.argv.extend([f"{_.strip()}=download,build" for _ in open("Depfile", "r").read()])
+            target.extend([[_.strip(), {"download", "build"}] for _ in open("Depfile", "r").read()])
             
-    targets=get_targets()
     for target in targets:
         execute_target(target)
 

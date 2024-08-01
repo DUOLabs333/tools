@@ -1,4 +1,5 @@
 from utils import *
+import update
 
 from sys import platform as PLATFORM
 
@@ -46,6 +47,13 @@ def _flatten(obj):
 def flatten(obj):
     return [_ for _ in _flatten(obj)]
 
+old_get_dep_path=get_dep_path
+
+def get_dep_path(dep, *args, **kwargs):
+    if UPDATE_DEPENDENCIES:
+        update.execute_target([dep, {"download", "build"}])
+    return old_get_dep_path(dep, *args, **kwargs)
+    
 def import_build(path, external=True):
     
     with cwd_ctx(path):
@@ -68,6 +76,7 @@ DEBUG=env_to_bool("DEBUG", True)
 CLIENT=env_to_bool("CLIENT", False if PLATFORM=="darwin" else True)
 CC=os.environ.get("CC", "cc")
 CXX=os.environ.get("CXX", "c++")
+UPDATE_DEPENDENCIES=env_to_bool("UPDATE_DEPENDENCIES", False)
 
 targets={}
 compiled={}
