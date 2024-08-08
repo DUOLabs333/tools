@@ -150,57 +150,59 @@ def compile_target(target):
 
     compiled[target.__class__]=target
 
+cached_targets=set()
 def build_target(prefix, target):
+    compile_target(target)
+        
+    target=compiled[target]
 
-    with cwd_ctx(target.CWD):
-        compile_target(target)
-
-        target=compiled[target]
-
+    if target not in cached_targets:
+        cached_targets.add(target.__class__)
         print(f"{prefix}: {'Cleaning' if target.CLEAN else 'Building'} target {target.__class__.__name__}...")
-        if hasattr(target, "build"):
-            getattr(target, "build")()
-        else:
-            for file in target.SRC_FILES:
-                object_file=get_object_file(file)
-                if not object_file:
-                    continue
-                
-                if target.CLEAN:
-                    try:
-                        os.remove(object_file)
-                    except OSError:
-                        pass
-                    continue
-                    
-                if os.path.exists(object_file):
-                    if int(os.path.getmtime(object_file))==int(os.path.getmtime(file)):
-                        continue
-                    os.remove(object_file)
-                        
-                modified_time=int(os.path.getmtime(file))
-                CPP=file.endswith(".cpp")
-                
-                subprocess.run([(CXX if CPP else CC)]+[("-std=c++20" if CPP else "-std=gnu99")]+ target.FLAGS+ ["-o",object_file,"-c",file]+ target.INCLUDE_PATHS)
-                os.utime(object_file, (modified_time, modified_time))
-
-            
-            if not target.CLEAN:
-                OBJECT_FILES=[get_object_file(_) for _ in target.SRC_FILES]
-                if (target.OUTPUT_TYPE in [EXE, LIB]):
-                    subprocess.run([CXX]+(["-shared"] if target.OUTPUT_TYPE==LIB else [])+["-o", target.OUTPUT_NAME]+OBJECT_FILES+target.FLAGS+(["-Wl,--start-group"] if PLATFORM!="darwin" else [])+target.STATIC_LIBS+(["-Wl,--end-group"] if PLATFORM!="darwin" else [])+target.SHARED_LIBS_PATHS+target.SHARED_LIBS+(FRAMEWORKS_PATHS+target.FRAMEWORKS if PLATFORM=="darwin" else []))
-                else:
-                    pathlib.Path(target.OUTPUT_NAME).unlink(missing_ok=True)
-                    if PLATFORM=="darwin":
-                        ar=["libtool", "-static", "-o"]
-                    else:
-                        ar=["ar", "-rcT"]
-
-                    subprocess.run(ar+[target.OUTPUT_NAME]+OBJECT_FILES+target.STATIC_LIBS)
-                    subprocess.run(["ar", "-M"], input="\n".join([f'create "{target.OUTPUT_NAME}"']+[f'addlib "{target.OUTPUT_NAME}"']+["save", "end"]),text=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+        with cwd_ctx(target.CWD):
+            if hasattr(target, "build"):
+                getattr(target, "build")()
             else:
-                if os.path.exists(target.OUTPUT_NAME):
-                    os.remove(target.OUTPUT_NAME)
+                for file in target.SRC_FILES:
+                    object_file=get_object_file(file)
+                    if not object_file:
+                        continue
+                    
+                    if target.CLEAN:
+                        try:
+                            os.remove(object_file)
+                        except OSError:
+                            pass
+                        continue
+                        
+                    if os.path.exists(object_file):
+                        if int(os.path.getmtime(object_file))==int(os.path.getmtime(file)):
+                            continue
+                        os.remove(object_file)
+                            
+                    modified_time=int(os.path.getmtime(file))
+                    CPP=file.endswith(".cpp")
+                    
+                    subprocess.run([(CXX if CPP else CC)]+[("-std=c++20" if CPP else "-std=gnu99")]+ target.FLAGS+ ["-o",object_file,"-c",file]+ target.INCLUDE_PATHS)
+                    os.utime(object_file, (modified_time, modified_time))
+
+                
+                if not target.CLEAN:
+                    OBJECT_FILES=[get_object_file(_) for _ in target.SRC_FILES]
+                    if (target.OUTPUT_TYPE in [EXE, LIB]):
+                        subprocess.run([CXX]+(["-shared"] if target.OUTPUT_TYPE==LIB else [])+["-o", target.OUTPUT_NAME]+OBJECT_FILES+target.FLAGS+(["-Wl,--start-group"] if PLATFORM!="darwin" else [])+target.STATIC_LIBS+(["-Wl,--end-group"] if PLATFORM!="darwin" else [])+target.SHARED_LIBS_PATHS+target.SHARED_LIBS+(FRAMEWORKS_PATHS+target.FRAMEWORKS if PLATFORM=="darwin" else []))
+                    else:
+                        pathlib.Path(target.OUTPUT_NAME).unlink(missing_ok=True)
+                        if PLATFORM=="darwin":
+                            ar=["libtool", "-static", "-o"]
+                        else:
+                            ar=["ar", "-rcT"]
+
+                        subprocess.run(ar+[target.OUTPUT_NAME]+OBJECT_FILES+target.STATIC_LIBS)
+                        subprocess.run(["ar", "-M"], input="\n".join([f'create "{target.OUTPUT_NAME}"']+[f'addlib "{target.OUTPUT_NAME}"']+["save", "end"]),text=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+                else:
+                    if os.path.exists(target.OUTPUT_NAME):
+                        os.remove(target.OUTPUT_NAME)
 
         return target
 
