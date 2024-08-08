@@ -47,11 +47,15 @@ def _flatten(obj):
 def flatten(obj):
     return [_ for _ in _flatten(obj)]
 
+dependencies=set() #Caching existing dependencies, so a single dependency is not downloaded multiple times in the same invocation
 old_get_dep_path=get_dep_path
 
 def get_dep_path(dep, *args, **kwargs):
     if UPDATE_DEPENDENCIES:
-        update.execute_target([dep, {"download", "build"}])
+        if dep not in dependencies:
+            update.execute_target([dep, {"download", "build"}])
+            dependencies.add(dep)
+        
     return old_get_dep_path(dep, *args, **kwargs)
     
 def import_build(path, external=True):
