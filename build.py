@@ -152,14 +152,15 @@ def compile_target(target):
 
 cached_targets=set()
 def build_target(prefix, target):
-    compile_target(target)
-        
-    target=compiled[target]
+    with cwd_ctx(target.CWD):
+        compile_target(target)
+            
+        target=compiled[target]
 
-    if target not in cached_targets:
-        cached_targets.add(target.__class__)
-        print(f"{prefix}: {'Cleaning' if target.CLEAN else 'Building'} target {target.__class__.__name__}...")
-        with cwd_ctx(target.CWD):
+        if target not in cached_targets:
+            cached_targets.add(target.__class__)
+            print(f"{prefix}: {'Cleaning' if target.CLEAN else 'Building'} target {target.__class__.__name__}...")
+            
             if hasattr(target, "build"):
                 getattr(target, "build")()
             else:
