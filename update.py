@@ -70,7 +70,7 @@ if __name__=="__main__":
             print("WARNING: No Depfile found! Exiting")
             sys.exit()
         else:
-            target.extend([[_.strip(), {"download", "build"}] for _ in open("Depfile", "r").read()])
+            target.extend([[_.strip(), ["download", "build"]] for _ in open("Depfile", "r").read()])
             
     for target in targets:
         execute_target(target)
