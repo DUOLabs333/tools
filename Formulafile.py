@@ -29,12 +29,12 @@ class simdjson:
     def download(cls):
         git_clone("simdjson/simdjson")
 
-class Turbo_Base64:
+class simdutf:
     def download(cls):
-        git_clone("powturbo/Turbo-Base64")
+        git_clone("simdutf/simdutf")
 
     def build(cls):
-        subprocess.run(["make", "libtb64.a"])
+        subprocess.run(["python3", "singleheader/amalgamate.py"])
 
 class Vulkan_Headers:
     def download(cls):
