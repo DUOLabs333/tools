@@ -31,9 +31,8 @@ def untar(path, dest_dir=".", strip_components=0):
 def execute_target(target):
 
     name, actions=target
-    
-    name=name.replace("-", "_")
-    formula=getattr(formulas, name)()
+
+    formula=getattr(formulas, name.replace("-", "_"))()
     dest_dir=get_dep_folder(name)
 
     if "delete" in actions:
