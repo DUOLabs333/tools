@@ -22,6 +22,8 @@ class BuildBase(object):
     DEPENDENCIES=[] #Escape hatch for arbitrary dependencies that aren't describable in any pre-existing model
     FRAMEWORKS=[]
 
+    RPATH=[]
+
     OUTPUT_NAME=""
 
     CWD="."
@@ -121,6 +123,8 @@ def compile_target(target):
     target.SHARED_LIBS=["-l"+_ for _ in target.SHARED_LIBS]
     target.SHARED_LIBS_PATHS=["-L"+_ for _ in target.SHARED_LIBS_PATHS]
 
+    target.RPATH = ["-Wl,-rpath,"+_ for _ in target.RPATH]
+
     for i, e in enumerate(target.SRC_FILES):
        target.SRC_FILES[i]=[_ for _ in glob.glob(e) if get_object_file(_)]
     target.SRC_FILES=list(itertools.chain.from_iterable(target.SRC_FILES))
@@ -191,7 +195,7 @@ def build_target(prefix, target):
                 if not target.CLEAN:
                     OBJECT_FILES=[get_object_file(_) for _ in target.SRC_FILES]
                     if (target.OUTPUT_TYPE in [EXE, LIB]):
-                        subprocess.run([CXX]+(["-shared"] if target.OUTPUT_TYPE==LIB else [])+["-o", target.OUTPUT_NAME]+OBJECT_FILES+target.FLAGS+(["-Wl,--start-group"] if PLATFORM!="darwin" else [])+target.STATIC_LIBS+(["-Wl,--end-group"] if PLATFORM!="darwin" else [])+target.SHARED_LIBS_PATHS+target.SHARED_LIBS+(FRAMEWORKS_PATHS+target.FRAMEWORKS if PLATFORM=="darwin" else []))
+                        subprocess.run([CXX]+(["-shared"] if target.OUTPUT_TYPE==LIB else [])+["-o", target.OUTPUT_NAME]+OBJECT_FILES+target.FLAGS+(["-Wl,--start-group"] if PLATFORM!="darwin" else [])+target.STATIC_LIBS+(["-Wl,--end-group"] if PLATFORM!="darwin" else [])+target.SHARED_LIBS_PATHS+target.SHARED_LIBS+(FRAMEWORKS_PATHS+target.FRAMEWORKS if PLATFORM=="darwin" else [])+target.RPATH)
                     else:
                         pathlib.Path(target.OUTPUT_NAME).unlink(missing_ok=True)
                         if PLATFORM=="darwin":
