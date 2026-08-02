@@ -179,7 +179,7 @@ def build_target(prefix, target):
                         except OSError:
                             pass
                         continue
-                        
+                    #If stale headers become a problem, a way to fix that would be to use CXX with -H to check the headers used (possibly caching them), only checking the ones in the project, and whether any of them have a modification time greater than the modification time of the object file.   
                     if os.path.exists(object_file):
                         if int(os.path.getmtime(object_file))==int(os.path.getmtime(file)):
                             continue
@@ -193,6 +193,7 @@ def build_target(prefix, target):
 
                 
                 if not target.CLEAN:
+                    #We can also be smarter about the invalidation logic by only rebuilding if the mtime of any of the object_files and static_libs is after the mtime of the output file (however, this optimization will only make sence is linking takes a long time).
                     OBJECT_FILES=[get_object_file(_) for _ in target.SRC_FILES]
                     if (target.OUTPUT_TYPE in [EXE, LIB]):
                         subprocess.run([CXX]+(["-shared"] if target.OUTPUT_TYPE==LIB else [])+["-o", target.OUTPUT_NAME]+OBJECT_FILES+target.FLAGS+(["-Wl,--start-group"] if PLATFORM!="darwin" else [])+target.STATIC_LIBS+(["-Wl,--end-group"] if PLATFORM!="darwin" else [])+target.SHARED_LIBS_PATHS+target.SHARED_LIBS+(FRAMEWORKS_PATHS+target.FRAMEWORKS if PLATFORM=="darwin" else [])+target.RPATH)
