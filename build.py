@@ -112,7 +112,7 @@ def compile_target(target):
     else:
         target.CLEAN=CLEAN
 
-    target.FLAGS=(["-g","-DDEBUG"] if DEBUG else ["-O3","-DNDEBUG"]) + ["-Wfatal-errors","-fPIC","-Winvalid-pch", "-g"]+(["-ggdb"] if PLATFORM=="linux" else [])+(["-march=native"] if not DEBUG else [])+(["-DCLIENT"] if is_client else [])+target.FLAGS
+    target.FLAGS=(["-g","-DDEBUG"] if DEBUG else ["-O3","-DNDEBUG"]) + ["-Wfatal-errors","-fPIC","-Winvalid-pch","-Werror=integer-overflow","-Werror=format", "-g"]+(["-ggdb"] if PLATFORM=="linux" else [])+(["-march=native"] if not DEBUG else [])+(["-DCLIENT"] if is_client else [])+target.FLAGS
 
     for i, e in enumerate(target.INCLUDE_PATHS):
         if is_buildbase(e):
