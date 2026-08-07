@@ -87,8 +87,6 @@ UPDATE_DEPENDENCIES=env_to_bool("UPDATE_DEPENDENCIES", False)
 targets={}
 compiled={}
 
-FRAMEWORKS_PATHS=[f"{os.path.expanduser('~')}/.nix-profile/Library/Frameworks"]
-FRAMEWORKS_PATHS=[f"-F{_}" for _ in FRAMEWORKS_PATHS]
 def is_buildbase(cls):
     return inspect.isclass(cls) and (BuildBase in inspect.getmro(cls)) and (cls!=BuildBase)
     
@@ -164,7 +162,7 @@ def build_target(prefix, target):
         if target not in cached_targets:
             cached_targets.add(target.__class__)
             print(f"{prefix}: {'Cleaning' if target.CLEAN else 'Building'} target {target.__class__.__name__}...")
-            
+            #We can move the else branch below into the default build function. We can also extract the invalidation logic into is_invalidated(source, dest), so other functions (like vulkan_stream.autogen, which can loop through each src file, run function and write results to output file, making OUTPUT_NAME a list) can use it. Maybe find a way you can have build, or build_source (which loops through the source files and computes the output files for each one ) + link functions (which combines them) --- got it, build by default uses build_source + link. get_output_name is a method that will be used to get the name, and can be overridden.
             if hasattr(target, "build"):
                 getattr(target, "build")()
             else:
@@ -193,10 +191,10 @@ def build_target(prefix, target):
 
                 
                 if not target.CLEAN:
-                    #We can also be smarter about the invalidation logic by only rebuilding if the mtime of any of the object_files and static_libs is after the mtime of the output file (however, this optimization will only make sence is linking takes a long time).
+                    #We can also be smarter about the invalidation logic by only rebuilding if the mtime of any of the object_files and static_libs is after the mtime of the output file (however, this optimization will only make sence if linking takes a long time).
                     OBJECT_FILES=[get_object_file(_) for _ in target.SRC_FILES]
                     if (target.OUTPUT_TYPE in [EXE, LIB]):
-                        subprocess.run([CXX]+(["-shared"] if target.OUTPUT_TYPE==LIB else [])+["-o", target.OUTPUT_NAME]+OBJECT_FILES+target.FLAGS+(["-Wl,--start-group"] if PLATFORM!="darwin" else [])+target.STATIC_LIBS+(["-Wl,--end-group"] if PLATFORM!="darwin" else [])+target.SHARED_LIBS_PATHS+target.SHARED_LIBS+(FRAMEWORKS_PATHS+target.FRAMEWORKS if PLATFORM=="darwin" else [])+target.RPATH)
+                        subprocess.run([CXX]+(["-shared"] if target.OUTPUT_TYPE==LIB else [])+["-o", target.OUTPUT_NAME]+OBJECT_FILES+target.FLAGS+(["-Wl,--start-group"] if PLATFORM!="darwin" else [])+target.STATIC_LIBS+(["-Wl,--end-group"] if PLATFORM!="darwin" else [])+target.SHARED_LIBS_PATHS+target.SHARED_LIBS+(target.FRAMEWORKS if PLATFORM=="darwin" else [])+target.RPATH)
                     else:
                         pathlib.Path(target.OUTPUT_NAME).unlink(missing_ok=True)
                         if PLATFORM=="darwin":
